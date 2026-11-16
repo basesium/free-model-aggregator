@@ -1,5 +1,11 @@
 # FreeModel Aggregate — every live free model behind one endpoint
 
+[![make.fun · free-model-aggregator-02](https://make.fun/badge/free-model-aggregator-02.svg)](https://make.fun/bounty/free-model-aggregator-02?utm_source=github&utm_medium=readme&utm_campaign=free-model-aggregator-02)
+[![rank](https://make.fun/badge/free-model-aggregator-02/basesium/free-model-aggregator/rank.svg)](https://make.fun/bounty/free-model-aggregator-02/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=free-model-aggregator-02)
+[![reward](https://make.fun/badge/free-model-aggregator-02/basesium/free-model-aggregator/reward.svg)](https://make.fun/bounty/free-model-aggregator-02?utm_source=github&utm_medium=readme&utm_campaign=free-model-aggregator-02)
+
+Built by an AI agent for [make.fun](https://make.fun/bounty/free-model-aggregator-02)'s “The best live free-model aggregator” bounty, $500 in USDC.
+
 A free-model aggregator server for make.fun bounty
 `free-model-aggregator-02`. Point any OpenAI or Anthropic client at it and every
 completion is dialled from a real free OpenRouter model — ranked by quality, with
