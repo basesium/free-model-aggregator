@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FreeModel Aggregate — every free model behind one endpoint</title>
+<style>
+  :root { --bg:#0c0f14; --panel:#141a22; --panel2:#1a222d; --line:#26303d; --text:#e8eef4; --muted:#93a1b0; --accent:#5eead4; --accent2:#fbbf24; --bad:#f87171; --good:#4ade80; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  header { padding:28px 24px 8px; max-width:1080px; margin:0 auto; }
+  h1 { margin:0; font-size:30px; letter-spacing:-.5px; }
+  h1 span { color:var(--accent); }
+  .sub { color:var(--muted); margin:6px 0 0; max-width:720px; }
+  .pill { display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; border:1px solid var(--line); color:var(--muted); margin-top:10px; }
+  .pill.live { color:var(--good); border-color:#1f4d2e; }
+  main { max-width:1080px; margin:0 auto; padding:16px 24px 40px; display:grid; gap:18px; }
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .stat { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .stat b { display:block; font-size:24px; }
+  .stat span { color:var(--muted); font-size:12.5px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .controls input[type=search] { flex:1 1 240px; padding:9px 12px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:14px; }
+  .controls select { padding:9px 10px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:14px; }
+  .controls label { color:var(--muted); font-size:13px; display:flex; gap:5px; align-items:center; cursor:pointer; }
+  table { width:100%; border-collapse:collapse; margin-top:12px; }
+  th { text-align:left; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.5px; padding:8px 10px; border-bottom:1px solid var(--line); }
+  td { padding:10px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  tr { cursor:pointer; }
+  tr:hover td { background:var(--panel2); }
+  tr.selected td { background:#17252b; }
+  .name { font-weight:600; }
+  .vendor { color:var(--muted); font-size:12.5px; }
+  .bar { height:8px; background:#223041; border-radius:99px; overflow:hidden; min-width:110px; }
+  .bar i { display:block; height:100%; background:linear-gradient(90deg,var(--accent),#38bdf8); }
+  .tag { display:inline-block; font-size:11.5px; padding:1px 7px; border-radius:99px; border:1px solid var(--line); color:var(--muted); margin-right:4px; }
+  .tag.on { color:var(--accent); border-color:#155e52; }
+  .free { color:var(--good); font-weight:700; }
+  .detail { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .detail h2 { margin:0 0 4px; font-size:19px; }
+  .detail .muted { color:var(--muted); font-size:13px; }
+  .detail dl { display:grid; grid-template-columns:auto 1fr; gap:4px 14px; margin:12px 0 0; font-size:14px; }
+  .detail dt { color:var(--muted); }
+  textarea { width:100%; min-height:90px; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--text); font:14px/1.5 system-ui,sans-serif; resize:vertical; }
+  button { padding:10px 18px; border-radius:8px; border:0; background:var(--accent); color:#06231d; font-weight:700; font-size:14px; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:wait; }
+  .row { display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap; }
+  .row select { flex:1; padding:9px 10px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:14px; }
+  #answer { white-space:pre-wrap; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:12px; min-height:80px; margin-top:10px; font-size:14px; }
+  #answer .meta { color:var(--muted); font-size:12px; }
+  .empty { color:var(--muted); padding:18px 4px; }
+  @media (max-width:720px){ .stats{grid-template-columns:repeat(2,1fr);} .detail{grid-template-columns:1fr;} .bar{min-width:60px;} }
+</style>
+</head>
+<body>
+<header>
+  <h1>FreeModel <span>Aggregate</span></h1>
+  <p class="sub">Every live free model behind one endpoint. Pick any OpenAI or Anthropic client, point it here, and each answer is dialled from a real free model — ranked by quality, with failover when a provider refuses.</p>
+  <span class="pill" id="status">connecting…</span>
+</header>
+<main>
+  <section class="stats">
+    <div class="stat"><b id="statModels">–</b><span>free models live</span></div>
+    <div class="stat"><b>$0</b><span>price on every model</span></div>
+    <div class="stat"><b id="statBest">–</b><span>best rating in catalog</span></div>
+    <div class="stat"><b id="statCtx">–</b><span>widest context window</span></div>
+  </section>
+
+  <section class="panel">
+    <div class="controls">
+      <input type="search" id="q" placeholder="Search models — try “gemma”, “nemotron”, “vision”…">
+      <select id="vendor"><option value="">All vendors</option></select>
+      <label><input type="checkbox" id="fTools"> Tools</label>
+      <label><input type="checkbox" id="fVision"> Vision</label>
+      <label><input type="checkbox" id="fJson"> JSON mode</label>
+      <select id="sort">
+        <option value="rating">Sort: best rated</option>
+        <option value="context">Sort: widest context</option>
+        <option value="name">Sort: name A–Z</option>
+      </select>
+    </div>
+    <div id="tableWrap"><p class="empty">Loading the live catalog…</p></div>
+  </section>
+
+  <section class="panel detail">
+    <div>
+      <h2 id="dName">Pick a model</h2>
+      <p class="muted" id="dId">Select a row above to see what it can do and try it.</p>
+      <dl id="dFacts"></dl>
+    </div>
+    <div>
+      <label for="prompt" style="font-weight:600">Try it — live, through this server</label>
+      <div class="row">
+        <select id="modelPick"><option value="auto">auto — best model for this prompt</option></select>
+      </div>
+      <textarea id="prompt" style="margin-top:10px">Explain in one sentence why free models matter for builders.</textarea>
+      <div class="row"><button id="send">Send</button><span class="muted" id="sendMeta" style="font-size:12.5px"></span></div>
+      <div id="answer"><span class="meta">The answer streams here, from the model this server dialled.</span></div>
+    </div>
+  </section>
+  <p class="muted" style="font-size:12.5px">Catalog data comes live from this server's <code>GET /v1/models</code>. Completions go through <code>POST /v1/chat/completions</code> to a real free model — nothing is answered locally.</p>
+</main>
+<script>
+let MODELS = [];
+let selected = null;
+
+const $ = (id) => document.getElementById(id);
+const shortId = (id) => id.replace(/^openrouter\//, '').replace(/:free$/, '');
+const vendorOf = (id) => { const p = shortId(id).split('/'); return p.length > 1 ? p[0] : 'other'; };
+const fmtCtx = (n) => n == null ? '—' : n >= 1000000 ? (n / 1000000) + 'M' : n >= 1000 ? Math.round(n / 1000) + 'K' : String(n);
+
+async function load() {
+  try {
+    const res = await fetch('/api/models');
+    const data = await res.json();
+    MODELS = (data.models || []).map((m) => ({ ...m, vendor: vendorOf(m.id) }));
+    const status = $('status');
+    status.textContent = 'live · ' + MODELS.length + ' free models';
+    status.classList.add('live');
+    const vendors = [...new Set(MODELS.map((m) => m.vendor))].sort();
+    $('vendor').innerHTML = '<option value="">All vendors</option>' + vendors.map((v) => `<option>${v}</option>`).join('');
+    $('modelPick').innerHTML = '<option value="auto">auto — best model for this prompt</option>' +
+      MODELS.map((m) => `<option value="${m.id}">${shortId(m.id)}</option>`).join('');
+    $('statModels').textContent = MODELS.length;
+    $('statBest').textContent = (Math.max(...MODELS.map((m) => m.rating_milli || 0)) / 1000).toFixed(2) + ' / 2.00';
+    $('statCtx').textContent = fmtCtx(Math.max(...MODELS.map((m) => m.context_length || 0)));
+    render();
+  } catch (e) {
+    $('tableWrap').innerHTML = '<p class="empty">Could not reach the catalog. Is the server running?</p>';
+  }
+}
+
+function filtered() {
+  const q = $('q').value.trim().toLowerCase();
+  const v = $('vendor').value;
+  let list = MODELS.filter((m) => {
+    if (v && m.vendor !== v) return false;
+    if ($('fTools').checked && m.tools !== true) return false;
+    if ($('fVision').checked && m.vision !== true) return false;
+    if ($('fJson').checked && m.json !== true) return false;
+    if (q && !(m.id.toLowerCase().includes(q) || (m.display_name || '').toLowerCase().includes(q))) return false;
+    return true;
+  });
+  const s = $('sort').value;
+  if (s === 'context') list = [...list].sort((a, b) => (b.context_length || 0) - (a.context_length || 0));
+  else if (s === 'name') list = [...list].sort((a, b) => a.id.localeCompare(b.id));
+  else list = [...list].sort((a, b) => (b.rating_milli || 0) - (a.rating_milli || 0));
+  return list;
+}
+
+function render() {
+  const list = filtered();
+  if (list.length === 0) { $('tableWrap').innerHTML = '<p class="empty">No models match those filters.</p>'; return; }
+  const rows = list.map((m) => `
+    <tr data-id="${m.id}" class="${selected === m.id ? 'selected' : ''}">
+      <td><div class="name">${m.display_name || shortId(m.id)}</div><div class="vendor">${m.id}</div></td>
+      <td><div class="bar" title="rating ${((m.rating_milli || 0) / 1000).toFixed(3)}"><i style="width:${Math.min(100, ((m.rating_milli || 0) / 2000) * 100)}%"></i></div><div class="vendor">${((m.rating_milli || 0) / 1000).toFixed(3)}</div></td>
+      <td>${fmtCtx(m.context_length)}</td>
+      <td>${capTags(m)}</td>
+      <td><span class="free">$0</span></td>
+    </tr>`).join('');
+  $('tableWrap').innerHTML = `<table><thead><tr><th>Model</th><th>Rating</th><th>Context</th><th>Can do</th><th>Price</th></tr></thead><tbody>${rows}</tbody></table>`;
+  document.querySelectorAll('#tableWrap tr[data-id]').forEach((tr) => tr.addEventListener('click', () => select(tr.dataset.id)));
+}
+
+function capTags(m) {
+  const tag = (on, label) => `<span class="tag${on ? ' on' : ''}">${label}</span>`;
+  return tag(m.tools === true, 'tools') + tag(m.vision === true, 'vision') + tag(m.json === true, 'JSON');
+}
+
+function select(id) {
+  selected = id;
+  const m = MODELS.find((x) => x.id === id);
+  if (!m) return;
+  $('dName').textContent = m.display_name || shortId(m.id);
+  $('dId').textContent = m.id;
+  $('dFacts').innerHTML = `
+    <dt>Vendor</dt><dd>${m.vendor}</dd>
+    <dt>Rating</dt><dd>${((m.rating_milli || 0) / 1000).toFixed(3)} / 2.000 (house rating)</dd>
+    <dt>Context</dt><dd>${m.context_length ? m.context_length.toLocaleString() + ' tokens' : '—'}</dd>
+    <dt>Can do</dt><dd>${capTags(m)}</dd>
+    <dt>Price</dt><dd>$0 — free tier</dd>
+    <dt>Wire</dt><dd>OpenAI + Anthropic, via this server</dd>`;
+  $('modelPick').value = id;
+  render();
+}
+
+async function send() {
+  const btn = $('send');
+  const prompt = $('prompt').value.trim();
+  if (!prompt) return;
+  const model = $('modelPick').value;
+  btn.disabled = true;
+  $('sendMeta').textContent = 'dialling ' + (model === 'auto' ? 'the best free model' : shortId(model)) + '…';
+  const box = $('answer');
+  box.textContent = '';
+  try {
+    const res = await fetch('/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', Authorization: 'Bearer demo' },
+      body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: 512, stream: true, stream_options: { include_usage: true } }),
+    });
+    if (!res.ok || !res.body) { box.textContent = 'The gateway refused: HTTP ' + res.status; return; }
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '', usedModel = '', done = false;
+    while (!done) {
+      const { value, done: d } = await reader.read();
+      done = d;
+      if (value) {
+        buf += dec.decode(value, { stream: true });
+        let at;
+        while ((at = buf.indexOf('\n\n')) !== -1) {
+          const frame = buf.slice(0, at); buf = buf.slice(at + 2);
+          for (const line of frame.split('\n')) {
+            const t = line.trim();
+            if (!t.startsWith('data:')) continue;
+            const payload = t.slice(5).trim();
+            if (payload === '[DONE]') continue;
+            try {
+              const chunk = JSON.parse(payload);
+              if (chunk.model) usedModel = chunk.model;
+              const delta = chunk.choices && chunk.choices[0] && chunk.choices[0].delta;
+              if (delta && typeof delta.content === 'string') box.textContent += delta.content;
+            } catch { /* keep the stream going */ }
+          }
+        }
+      }
+    }
+    $('sendMeta').textContent = usedModel ? 'answered by ' + shortId(usedModel) : '';
+  } catch (e) {
+    box.textContent = 'Request failed: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+['q', 'vendor', 'sort'].forEach((id) => $(id).addEventListener('input', render));
+['fTools', 'fVision', 'fJson'].forEach((id) => $(id).addEventListener('change', render));
+$('send').addEventListener('click', send);
+load();
+</script>
+</body>
+</html>
